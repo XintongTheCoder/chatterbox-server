@@ -1,5 +1,5 @@
 /* Import node's http module: */
-const http = require("http");
+const http = require('http');
 
 // Every server needs to listen on a port with a unique number. The
 // standard port for HTTP servers is port 80, but that port is
@@ -11,7 +11,7 @@ const port = 3000;
 // For now, since you're running this server on your local machine,
 // we'll have it listen on the IP address 127.0.0.1, which is a
 // special address that always refers to localhost.
-const ip = "127.0.0.1";
+const ip = '127.0.0.1';
 
 // We use node's http module to create a server.
 //
@@ -20,7 +20,7 @@ const ip = "127.0.0.1";
 //
 // After creating the server, we will tell it to listen on the given port and IP. */
 const server = http.createServer(handleRequest);
-console.log("Listening on http://" + ip + ":" + port);
+console.log('Listening on http://' + ip + ':' + port);
 server.listen(port, ip);
 
 // To start this server, run:
