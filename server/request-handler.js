@@ -1,3 +1,4 @@
+/* eslint-disable no-use-before-define */
 /* eslint-disable indent */
 /*************************************************************
 
@@ -12,12 +13,20 @@ this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 
 **************************************************************/
+const path = require('path');
+const urlParser = require('url');
+const {
+  defaultCorsHeaders,
+  send404,
+  sendResponse,
+  collectData,
+  sendFile,
+} = require('./utils.js');
 let messages = [];
 let messageId = 0;
-const fs = require('fs');
-const path = require('path');
 
-const requestHandler = function (request, response) {
+// Routing logic
+module.exports = function (request, response) {
   // Request and Response come from node's http module.
   //
   // They include information about both the incoming request, such as
@@ -34,7 +43,8 @@ const requestHandler = function (request, response) {
   // console.logs in your code.
   // eslint-disable-next-line no-use-before-define
   let headers = defaultCorsHeaders;
-  if (request.url === '/classes/messages') {
+  const url = urlParser.parse(request.url).pathname; // to exclude query parameter
+  if (url === '/classes/messages') {
     console.log(
       'Serving request type ' + request.method + ' for url ' + request.url
     );
@@ -46,7 +56,7 @@ const requestHandler = function (request, response) {
       case 'GET':
         // .writeHead() writes to the request line and headers of the response,
         // which includes the status and all headers.
-        response.writeHead(200, headers);
+        // response.writeHead(200, headers);
         // Make sure to always call response.end() - Node may not send
         // anything back to the client until you do. The string you pass to
         // response.end() will be the body of the response - i.e. what shows
@@ -54,59 +64,34 @@ const requestHandler = function (request, response) {
         //
         // Calling .end "flushes" the response's internal buffer, forcing
         // node to actually send all the data over to the client.
-        response.end(JSON.stringify(messages));
+        // response.end(JSON.stringify(messages));
+        sendResponse(response, 200, headers, JSON.stringify(messages));
         break;
       case 'POST':
-        let body = [];
-        request
-          .on('data', (chunk) => {
-            body.push(chunk);
-          })
-          .on('end', () => {
-            body = Buffer.concat(body).toString();
-            const bodyObj = JSON.parse(body);
-            bodyObj['message_id'] = messageId++;
-            console.log('###', bodyObj);
-            messages.push(bodyObj);
-            response.writeHead(201, headers);
-            response.end(JSON.stringify(bodyObj));
-          });
+        collectData(request, (message) => {
+          message['message_id'] = messageId++;
+          messages.push(message);
+          sendResponse(response, 201, headers, JSON.stringify(message));
+        });
         break;
       case 'OPTIONS':
         headers['Allow'] = 'GET, POST';
-        response.writeHead(200, headers);
-        response.end();
+        sendResponse(response, 200, headers);
         break;
     }
-  } else if (request.url === '/' || request.url.includes('/?username=')) {
-    fs.readFile(path.join(__dirname, '../chatterbox.html'), (error, data) => {
-      if (error) {
-        response.writeHead(404);
-        response.end('404 Not Found');
-      } else {
-        headers['Content-Type'] = 'text/html';
-        response.writeHead(200, headers);
-        response.end(data);
-      }
-    });
-  } else if (request.url.includes('css') || request.url.includes('js')) {
-    fs.readFile(path.join(__dirname, '..', request.url), (error, data) => {
-      if (error) {
-        response.writeHead(404);
-        response.end('404 Not Found');
-      } else {
-        if (request.url.includes('css')) {
-          headers['Content-Type'] = 'text/css';
-        } else {
-          headers['Content-Type'] = 'application/javascript';
-        }
-        response.writeHead(200, headers);
-        response.end(data);
-      }
-    });
+  } else if (url === '/') {
+    sendFile(
+      path.join(__dirname, '../chatterbox.html'),
+      'html',
+      headers,
+      response
+    );
+  } else if (url.includes('css')) {
+    sendFile(path.join(__dirname, '..', url), 'css', headers, response);
+  } else if (url.includes('js')) {
+    sendFile(path.join(__dirname, '..', url), 'js', headers, response);
   } else {
-    response.writeHead(404, { 'Content-Type': 'text/plain' });
-    response.end('404 Not Found');
+    send404(response);
   }
 };
 
@@ -119,11 +104,5 @@ const requestHandler = function (request, response) {
 //
 // Another way to get around this restriction is to serve you chat
 // client from this domain by setting up static file serving.
-const defaultCorsHeaders = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'access-control-allow-headers': 'content-type, accept, authorization',
-  'access-control-max-age': 10, // Seconds.
-};
 
-module.exports.requestHandler = requestHandler;
+// module.exports.requestHandler = requestHandler;

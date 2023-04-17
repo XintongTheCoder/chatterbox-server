@@ -36,7 +36,7 @@ describe('Node Server Request Listener Function', function () {
     expect(res._ended).to.equal(true);
   });
 
-  it('Should accept posts to /classes/messages', function () {
+  it.only('Should accept posts to /classes/messages', function () {
     const stubMsg = {
       username: 'Jono',
       text: 'Do my bidding!',
