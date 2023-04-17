@@ -1,3 +1,4 @@
+/* eslint-disable indent */
 /*************************************************************
 
 You should implement your request handler function in this file.
@@ -11,6 +12,10 @@ this file and include it in basic-server.js so that it actually works.
 *Hint* Check out the node module documentation at http://nodejs.org/api/modules.html.
 
 **************************************************************/
+let messages = [];
+let messageId = 0;
+const fs = require('fs');
+const path = require('path');
 
 const requestHandler = function (request, response) {
   // Request and Response come from node's http module.
@@ -27,34 +32,82 @@ const requestHandler = function (request, response) {
   // Adding more logging to your server can be an easy way to get passive
   // debugging help, but you should always be careful about leaving stray
   // console.logs in your code.
-  console.log(
-    'Serving request type ' + request.method + ' for url ' + request.url
-  );
-
-  // The outgoing status.
-  const statusCode = 200;
-
-  // See the note below about CORS headers.
+  // eslint-disable-next-line no-use-before-define
   let headers = defaultCorsHeaders;
-
-  // Tell the client we are sending them plain text.
-  //
-  // You will need to change this if you are sending something
-  // other than plain text, like JSON or HTML.
-  headers['Content-Type'] = 'text/plain';
-
-  // .writeHead() writes to the request line and headers of the response,
-  // which includes the status and all headers.
-  response.writeHead(statusCode, headers);
-
-  // Make sure to always call response.end() - Node may not send
-  // anything back to the client until you do. The string you pass to
-  // response.end() will be the body of the response - i.e. what shows
-  // up in the browser.
-  //
-  // Calling .end "flushes" the response's internal buffer, forcing
-  // node to actually send all the data over to the client.
-  response.end('Hello, World!');
+  if (request.url === '/classes/messages') {
+    console.log(
+      'Serving request type ' + request.method + ' for url ' + request.url
+    );
+    // See the note below about CORS headers.
+    // eslint-disable-next-line no-use-before-define
+    headers['Content-Type'] = 'application/json';
+    // Handle POST request
+    switch (request.method) {
+      case 'GET':
+        // .writeHead() writes to the request line and headers of the response,
+        // which includes the status and all headers.
+        response.writeHead(200, headers);
+        // Make sure to always call response.end() - Node may not send
+        // anything back to the client until you do. The string you pass to
+        // response.end() will be the body of the response - i.e. what shows
+        // up in the browser.
+        //
+        // Calling .end "flushes" the response's internal buffer, forcing
+        // node to actually send all the data over to the client.
+        response.end(JSON.stringify(messages));
+        break;
+      case 'POST':
+        let body = [];
+        request
+          .on('data', (chunk) => {
+            body.push(chunk);
+          })
+          .on('end', () => {
+            body = Buffer.concat(body).toString();
+            const bodyObj = JSON.parse(body);
+            bodyObj['message_id'] = messageId++;
+            console.log('###', bodyObj);
+            messages.push(bodyObj);
+            response.writeHead(201, headers);
+            response.end(JSON.stringify(bodyObj));
+          });
+        break;
+      case 'OPTIONS':
+        headers['Allow'] = 'GET, POST';
+        response.writeHead(200, headers);
+        response.end();
+        break;
+    }
+  } else if (request.url === '/' || request.url.includes('/?username=')) {
+    fs.readFile(path.join(__dirname, '../chatterbox.html'), (error, data) => {
+      if (error) {
+        response.writeHead(404);
+        response.end('404 Not Found');
+      } else {
+        headers['Content-Type'] = 'text/html';
+        response.writeHead(200, headers);
+        response.end(data);
+      }
+    });
+  } else if (request.url.includes('css') || request.url.includes('js')) {
+    fs.readFile(path.join(__dirname, '..', request.url), (error, data) => {
+      if (error) {
+        response.writeHead(404);
+        response.end('404 Not Found');
+      } else {
+        if (request.url.includes('css')) {
+          headers['Content-Type'] = 'text/css';
+        } else {
+          headers['Content-Type'] = 'application/javascript';
+        }
+        response.writeHead(200, headers);
+        response.end(data);
+      }
+    });
+  } else {
+    response.writeHead(404, { 'Content-Type': 'text/plain' });
+    response.end('404 Not Found');
+  }
 };
 
 // These headers will allow Cross-Origin Resource Sharing (CORS).
@@ -72,3 +125,5 @@ const defaultCorsHeaders = {
   'access-control-allow-headers': 'content-type, accept, authorization',
   'access-control-max-age': 10, // Seconds.
 };
+
+module.exports.requestHandler = requestHandler;
